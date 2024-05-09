@@ -2,6 +2,8 @@
     "recommendations": [
         "esbenp.prettier-vscode",
         "vscode-icons-team.vscode-icons",
-        "github.copilot"
+        "github.copilot",
+        "wallabyjs.console-ninja",
+        "dsznajder.es7-react-js-snippets"
     ]
 }
