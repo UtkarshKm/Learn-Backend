@@ -4,6 +4,7 @@
         "vscode-icons-team.vscode-icons",
         "github.copilot",
         "wallabyjs.console-ninja",
-        "dsznajder.es7-react-js-snippets"
+        "dsznajder.es7-react-js-snippets",
+        "postman.postman-for-vscode"
     ]
 }
