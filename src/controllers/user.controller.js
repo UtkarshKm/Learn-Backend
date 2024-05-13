@@ -4,6 +4,16 @@ import { User } from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
+const generateAccessAndRefreshToken = async (user_id) => {
+  const user = await User.findById(user_id);
+  const accessToken = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+
+  user.refreshToken = refreshToken;
+
+  await user.save({ validateBeforeSave: false }); // as we don't have password field
+  return { accessToken, refreshToken };
+};
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, username, password } = req.body;
   console.log(req.body);
@@ -67,17 +77,48 @@ const registerUser = asyncHandler(async (req, res) => {
     username: username.toLowerCase(),
   });
 
-  const createduser = await User.findById(user._id).select(
+  const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
 
-  if (!createduser) {
+  if (!createdUser) {
     throw new apiError(500, "User was not created : user.controller.js");
   }
 
   return res
     .status(201)
-    .json(new ApiResponse(200, "User registered successfully", createduser));
+    .json(new ApiResponse(200, "User registered successfully", createdUser));
 });
 
+const loginUser = asyncHandler(async (req, res) => {
+  // req data from body
+  //username or email
+  //find user
+  //verify password
+  //generate token
+  // save them in secure cookies
+  // response of successful login
+
+  const { email, password, username } = req.body;
+
+  if (!email || !username) {
+    throw new ApiError(400, "Email  or username are required");
+  }
+
+  const user = await User.findOne({
+    $or: [{ email }, { username }],
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  // validate password
+  const isPasswordValid = user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Password is incorrect : invalid credentials");
+  }
+
+  const {accessToken , refreshToken} = await generateAccessAndRefreshToken(user._id);
+});
 export { registerUser };
