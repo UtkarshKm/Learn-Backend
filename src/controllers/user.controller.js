@@ -119,6 +119,57 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Password is incorrect : invalid credentials");
   }
 
-  const {accessToken , refreshToken} = await generateAccessAndRefreshToken(user._id);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  //cookies
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(200, "User logged in successfully", {
+        user: loggedInUser,
+        accessToken,
+        refreshToken, // for app development
+      })
+    );
 });
-export { registerUser };
+
+const logoutUser = asyncHandler(async (req, res) => {
+  //clear cookies and  remove refresh token from db
+
+  //find user -- designing a custom middleware : authMiddleware
+
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: { refreshToken: undefined },
+    },
+    {
+      new: true, //The ``new: true`` option is used to return the modified document rather than the original. By default, these methods return the original, unmodified document. If you set new: true, you'll get the updated document back in your callback or promise.
+    }
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, "User logged out successfully"));
+});
+export { registerUser, loginUser, logoutUser };
