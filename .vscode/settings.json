@@ -1,5 +1,7 @@
 {
     "cSpell.words": [
         "CLOUDINARY"
-    ]
+    ],
+    "editor.fontSize": 19,
+    "editor.mouseWheelZoom": true
 }
