@@ -3,6 +3,7 @@ import ApiError from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshToken = async (user_id) => {
   const user = await User.findById(user_id);
@@ -14,6 +15,7 @@ const generateAccessAndRefreshToken = async (user_id) => {
   await user.save({ validateBeforeSave: false }); // as we don't have password field
   return { accessToken, refreshToken };
 };
+
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, username, password } = req.body;
   console.log(req.body);
@@ -172,4 +174,73 @@ const logoutUser = asyncHandler(async (req, res) => {
     .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, "User logged out successfully"));
 });
-export { registerUser, loginUser, logoutUser };
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken ||
+    req.body.refreshToken ||
+    req.headers["refreshToken"]; // encrypted token
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, " unauthorized request : no refresh token");
+  }
+
+  try {
+    const decodedRefreshToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    ); // refresh token has _id of user
+
+    const dbRefreshToken = await User.findById(decodedRefreshToken._id).select(
+      "refreshToken"
+    );
+
+    if (!dbRefreshToken) {
+      throw new ApiError(401, "Invalid refresh token : user not found");
+    }
+
+    if (dbRefreshToken.refreshToken !== incomingRefreshToken) {
+      throw new ApiError(
+        401,
+        "Invalid refresh token : token mismatch or expired"
+      );
+    }
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { newAccessToken, newRefreshToken } = generateAccessAndRefreshToken(
+      decodedRefreshToken._id
+    );
+
+    // //add new refresh token to db
+    // await User.findByIdAndUpdate(
+    //   decodedRefreshToken._id,
+    //   {
+    //     $set : { refreshToken: newRefreshToken },
+    //   },
+    //   {
+    //     new: true,
+    //   }
+    // ); not need for this as generateAccessAndRefreshToken will do this but it uses save method instead of set which is better ( set is faster but save is more secure)
+
+    //add new token to cookies
+    return res
+      .status(200)
+      .cookie("accessToken", newAccessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new ApiResponse(200, "Access token refreshed successfully", {
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken, // for app development
+        })
+      );
+  } catch (error) {
+    throw new ApiError(
+      401,
+      error.message || "Unauthorized request : refreshAccessToken"
+    );
+  }
+});
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
