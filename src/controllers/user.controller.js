@@ -243,4 +243,106 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     );
   }
 });
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+
+const changeUserPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(400, "oldPassword and newPassword are required");
+  }
+
+  const user = await User.findById(req.user?._id);
+
+  const oldPasswordCheck = user.isPasswordCorrect(oldPassword);
+
+  if (!oldPasswordCheck) {
+    throw new ApiError(401, "Old password is incorrect");
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Password changed successfully"));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res.status(200).json(
+    new ApiResponse(200, "Current User fetched successfully ", {
+      current: req.user,
+    })
+  );
+});
+
+const updateUserProfile = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+
+  if (!fullName && !email) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      fullName,
+      email,
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "User updated successfully", updatedUser));
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "avatar is required");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatar.url) {
+    throw new ApiError(400, " error in uploading avatar");
+  }
+
+  try {
+    const updatedAvatar = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        avatar: avatar.url,
+      },
+      {
+        new: true,
+      }
+    ).select("-password");
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "Avatar updated successfully", updatedAvatar));
+  } catch (error) {
+    return res
+      .status(500)
+      .json(
+        error.message || new ApiError(500, " failed to update avatar in db")
+      );
+  }
+});
+
+// add functionality to update cover image
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeUserPassword,
+  getCurrentUser,
+  updateUserProfile,
+  updateUserAvatar,
+};
