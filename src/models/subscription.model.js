@@ -18,3 +18,4 @@ const subscriptionSchema = new Schema(
 );
 
 export const Subscription = model("Subscription", subscriptionSchema);
+// will be saves as " subscriptions " in the db
