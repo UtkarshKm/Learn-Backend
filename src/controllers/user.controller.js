@@ -336,6 +336,47 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 // add functionality to update cover image
+const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "coverImage is required");
+  }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  if (!coverImage.url) {
+    throw new ApiError(400, " error in uploading coverImage");
+  }
+
+  try {
+    const updatedCoverImage = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        coverImage: coverImage.url,
+      },
+      {
+        new: true,
+      }
+    ).select("-password");
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          "Cover Image updated successfully",
+          updatedCoverImage
+        )
+      );
+  } catch (error) {
+    return res
+      .status(500)
+      .json(
+        error.message || new ApiError(500, " failed to update coverImage in db")
+      );
+  }
+});
 // add utility to remove image from cloudinary after updating it
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
@@ -421,4 +462,5 @@ export {
   updateUserProfile,
   updateUserAvatar,
   getUserChannelProfile,
+  updateUserCoverImage,
 };
