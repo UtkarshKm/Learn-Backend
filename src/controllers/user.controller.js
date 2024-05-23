@@ -5,6 +5,7 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import { password } from "bun";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshToken = async (user_id) => {
   const user = await User.findById(user_id);
@@ -452,6 +453,66 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, "Channel fetched successfully", channel[0]));
 });
 
+const getWatchHistory = asyncHandler(async (req, res) => {
+  //get id and convert it to object id
+  try {
+    const user = await User.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(req.user._id),
+        },
+      },
+      {
+        $lookup: {
+          from: "videos",
+          localField: "watchHistory",
+          foreignField: "_id",
+          as: "watchHistory",
+          pipeline: [
+            {
+              $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                  {
+                    $project: {
+                      username: 1,
+                      avatar: 1,
+                    },
+                  },
+                ],
+              },
+            },
+            {
+              $addFields: {
+                owner: { $arrayElemAt: ["$owner", 0] },
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          "Watch history fetched successfully",
+          user[0].watchHistory
+        )
+      );
+  } catch (error) {
+    return res
+      .status(500)
+      .json(
+        error.message || new ApiError(500, " failed to fetch watch history")
+      );
+  }
+});
+
 export {
   registerUser,
   loginUser,
@@ -463,4 +524,5 @@ export {
   updateUserAvatar,
   getUserChannelProfile,
   updateUserCoverImage,
+  getWatchHistory,
 };
